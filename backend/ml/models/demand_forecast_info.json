@@ -1,0 +1,21 @@
+{
+  "model_type": "GradientBoostingRegressor",
+  "features": [
+    "lag_1",
+    "lag_2",
+    "lag_4",
+    "rolling_mean_4",
+    "rolling_std_4"
+  ],
+  "demo_product": "B07D1C573W",
+  "metrics": {
+    "MAE": 0.37138299813321785,
+    "RMSE": 0.6131471533305445
+  },
+  "assumption": "Review count used as proxy for demand",
+  "limitations": [
+    "Cannot predict exact sales numbers",
+    "Only valid for relative trend analysis",
+    "Review rate varies by product"
+  ]
+}

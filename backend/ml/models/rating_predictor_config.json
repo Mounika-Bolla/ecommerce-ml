@@ -1,0 +1,25 @@
+{
+  "feature_columns": [
+    "review_length",
+    "title_length",
+    "word_count",
+    "helpful_vote",
+    "verified_purchase",
+    "user_avg_rating",
+    "user_rating_std",
+    "user_review_count",
+    "user_verified_ratio",
+    "product_avg_rating",
+    "product_rating_std",
+    "product_review_count",
+    "product_avg_helpful"
+  ],
+  "model_params": {
+    "max_iter": 100,
+    "max_depth": 6,
+    "learning_rate": 0.1,
+    "min_samples_leaf": 20,
+    "random_state": 42,
+    "verbose": 1
+  }
+}
