@@ -1,0 +1,15 @@
+numpy
+pandas
+scipy
+scikit-learn
+matplotlib
+joblib
+xgboost
+statsmodels
+prophet
+polars
+pyarrow
+pydantic
+python-dotenv
+fastapi-sso
+fastapi

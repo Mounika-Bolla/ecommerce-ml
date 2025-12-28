@@ -15,6 +15,27 @@ ML_MODELS_PATH = Path(__file__).parent.parent.parent / "ml" / "models"
 DATASET_PATH = Path(__file__).parent.parent.parent / "ml" / "dataset"
 
 
+def _parse_price(price_value) -> Optional[float]:
+    """Parse price string (e.g., '$13.99') to float, or return None if invalid."""
+    if price_value is None:
+        return None
+    
+    if isinstance(price_value, (int, float)):
+        return float(price_value)
+    
+    if isinstance(price_value, str):
+        # Remove currency symbols, commas, and whitespace
+        cleaned = price_value.replace('$', '').replace(',', '').strip()
+        if not cleaned:
+            return None
+        try:
+            return float(cleaned)
+        except (ValueError, TypeError):
+            return None
+    
+    return None
+
+
 class RecommendationService:
     """Service to handle product recommendations using pre-trained models."""
     
@@ -79,7 +100,10 @@ class RecommendationService:
     def _load_metadata_index(self):
         """Load product metadata index - optimized to find ML model products."""
         try:
+            # Try both .jsonl and .json extensions
             meta_path = DATASET_PATH / "meta_Home_and_Kitchen.jsonl"
+            if not meta_path.exists():
+                meta_path = DATASET_PATH / "meta_Home_and_Kitchen.json"
             if not meta_path.exists():
                 print("   ⚠️ Metadata file not found")
                 return
@@ -107,8 +131,9 @@ class RecommendationService:
                         break
                     
                     # Filter to only model products
+                    # Handle both 'parent_asin' and 'asin' column names
                     for row in meta.iter_rows(named=True):
-                        asin = row.get('parent_asin')
+                        asin = row.get('parent_asin') or row.get('asin')
                         if asin and asin in model_products and asin not in self.product_metadata:
                             self.product_metadata[asin] = row
                             found += 1
@@ -122,7 +147,8 @@ class RecommendationService:
             if len(self.product_metadata) < 100:
                 meta = pl.read_ndjson(meta_path, n_rows=10000)
                 for row in meta.iter_rows(named=True):
-                    asin = row.get('parent_asin')
+                    # Handle both 'parent_asin' and 'asin' column names
+                    asin = row.get('parent_asin') or row.get('asin')
                     if asin and asin not in self.product_metadata:
                         self.product_metadata[asin] = row
             
@@ -149,18 +175,34 @@ class RecommendationService:
                 "categories": []
             }
         
-        # Extract first image
+        # Extract first image - check multiple possible field names
         image_url = None
-        images = data.get('images', [])
-        if images and isinstance(images, list) and len(images) > 0:
-            first_image = images[0]
-            if isinstance(first_image, dict):
-                # Prefer hi_res, then large, then thumb
-                image_url = (
-                    first_image.get('hi_res') or 
-                    first_image.get('large') or 
-                    first_image.get('thumb')
-                )
+        
+        # Try imageURLHighRes first (highest quality)
+        image_url_high_res = data.get('imageURLHighRes', [])
+        if image_url_high_res and isinstance(image_url_high_res, list) and len(image_url_high_res) > 0:
+            image_url = image_url_high_res[0] if isinstance(image_url_high_res[0], str) else None
+        
+        # Fall back to imageURL if no high-res
+        if not image_url:
+            image_url_list = data.get('imageURL', [])
+            if image_url_list and isinstance(image_url_list, list) and len(image_url_list) > 0:
+                image_url = image_url_list[0] if isinstance(image_url_list[0], str) else None
+        
+        # Also check for 'images' field (nested dict format)
+        if not image_url:
+            images = data.get('images', [])
+            if images and isinstance(images, list) and len(images) > 0:
+                first_image = images[0]
+                if isinstance(first_image, dict):
+                    # Prefer hi_res, then large, then thumb
+                    image_url = (
+                        first_image.get('hi_res') or 
+                        first_image.get('large') or 
+                        first_image.get('thumb')
+                    )
+                elif isinstance(first_image, str):
+                    image_url = first_image
         
         # Extract description
         description = ""
@@ -190,12 +232,39 @@ class RecommendationService:
             "title": data.get('title', f'Product {asin}'),
             "description": description,
             "image_url": image_url,
-            "price": data.get('price'),
+            "price": _parse_price(data.get('price')),
             "rating": data.get('average_rating'),
             "rating_count": data.get('rating_number'),
             "store": data.get('store'),
             "categories": categories
         }
+    
+    def _has_image(self, data: dict) -> bool:
+        """Check if product data has a valid image URL."""
+        # Check imageURLHighRes
+        image_url_high_res = data.get('imageURLHighRes', [])
+        if image_url_high_res and isinstance(image_url_high_res, list) and len(image_url_high_res) > 0:
+            if isinstance(image_url_high_res[0], str) and image_url_high_res[0]:
+                return True
+        
+        # Check imageURL
+        image_url_list = data.get('imageURL', [])
+        if image_url_list and isinstance(image_url_list, list) and len(image_url_list) > 0:
+            if isinstance(image_url_list[0], str) and image_url_list[0]:
+                return True
+        
+        # Check images (nested dict format)
+        images = data.get('images', [])
+        if images and isinstance(images, list) and len(images) > 0:
+            first_img = images[0]
+            if isinstance(first_img, dict):
+                img_url = first_img.get('hi_res') or first_img.get('large') or first_img.get('thumb')
+                if img_url:
+                    return True
+            elif isinstance(first_img, str) and first_img:
+                return True
+        
+        return False
     
     def _enrich_recommendations(self, recommendations: list[dict]) -> list[dict]:
         """Add product details to recommendations - only include products WITH images."""
@@ -204,7 +273,7 @@ class RecommendationService:
             asin = rec.get('asin', '')
             details = self.get_product_details(asin)
             
-            # Skip products without images
+            # Only include products with images
             if not details.get('image_url'):
                 continue
             
@@ -212,7 +281,7 @@ class RecommendationService:
                 **rec,
                 "title": details.get('title', f'Product {asin}'),
                 "description": details.get('description', ''),
-                "image_url": details.get('image_url'),
+                "image_url": details.get('image_url'),  # Use actual image from metadata
                 "price": details.get('price'),
                 "rating": details.get('rating'),
                 "rating_count": details.get('rating_count'),
@@ -338,6 +407,9 @@ class RecommendationService:
         results = []
         for asin, score in sorted_recs[:n_recommendations]:
             data = product_data.get(asin, {})
+            # Only include products with images
+            if not data.get("image_url"):
+                continue
             results.append({
                 "asin": asin,
                 "score": round(score, 3),
@@ -345,7 +417,7 @@ class RecommendationService:
                 "title": data.get("title", f"Product {asin}"),
                 "description": data.get("description", ""),
                 "image_url": data.get("image_url"),
-                "price": data.get("price"),
+                "price": _parse_price(data.get("price")),
                 "rating": data.get("rating"),
                 "rating_count": data.get("rating_count"),
                 "store": data.get("store"),
@@ -355,24 +427,21 @@ class RecommendationService:
         return results
     
     def get_available_products(self, limit: int = 100, offset: int = 0) -> dict:
-        """Get list of products with details - only products WITH images."""
+        """Get list of products with details - only return products WITH images."""
         if not self.mappings:
             return {"products": [], "total": 0, "offset": 0, "limit": limit}
         
-        # Get products that have metadata AND images
+        # Only get products that have metadata AND images
         products_with_images = []
-        for asin in self.mappings.get("product_to_idx", {}).keys():
+        all_products = list(self.mappings.get("product_to_idx", {}).keys())
+        
+        for asin in all_products:
             if asin in self.product_metadata:
                 data = self.product_metadata[asin]
-                images = data.get('images', [])
-                if images and isinstance(images, list) and len(images) > 0:
-                    # Check if image has a valid URL
-                    first_img = images[0]
-                    if isinstance(first_img, dict):
-                        img_url = first_img.get('hi_res') or first_img.get('large') or first_img.get('thumb')
-                        if img_url:
-                            products_with_images.append(asin)
+                if self._has_image(data):
+                    products_with_images.append(asin)
         
+        # Only return products with images
         total = len(products_with_images)
         paginated_asins = products_with_images[offset:offset + limit]
         
@@ -380,6 +449,7 @@ class RecommendationService:
         for asin in paginated_asins:
             details = self.get_product_details(asin)
             if details and details.get('image_url'):
+                # Only include products with images
                 products.append(details)
         
         return {

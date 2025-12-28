@@ -43,7 +43,10 @@ class DemandService:
     def _load_data(self):
         """Load and prepare demand data."""
         try:
+            # Try both .jsonl and .json extensions
             reviews_path = DATASET_PATH / "Home_and_Kitchen.jsonl"
+            if not reviews_path.exists():
+                reviews_path = DATASET_PATH / "Home_and_Kitchen.json"
             if not reviews_path.exists():
                 print("⚠️ Reviews file not found for demand analysis")
                 return
@@ -51,12 +54,32 @@ class DemandService:
             print("📊 Loading demand data...")
             
             # Load reviews
-            reviews = pl.read_ndjson(reviews_path, n_rows=100000)
+            reviews_raw = pl.read_ndjson(reviews_path, n_rows=100000)
             
-            # Convert timestamp
-            reviews = reviews.with_columns([
-                pl.from_epoch(pl.col('timestamp'), time_unit='ms').alias('date')
-            ])
+            # Rename columns to match expected names
+            # The dataset uses: reviewerID, overall, asin, unixReviewTime
+            # We need: user_id, rating, parent_asin, timestamp
+            if 'timestamp' not in reviews_raw.columns and 'unixReviewTime' in reviews_raw.columns:
+                reviews = reviews_raw.rename({
+                    'reviewerID': 'user_id',
+                    'overall': 'rating',
+                    'asin': 'parent_asin',
+                    'unixReviewTime': 'timestamp'
+                }).with_columns([
+                    pl.col('parent_asin').alias('asin')
+                ])
+            else:
+                reviews = reviews_raw
+            
+            # Convert timestamp to datetime
+            # Note: unixReviewTime is in SECONDS, not milliseconds
+            if 'timestamp' in reviews.columns:
+                reviews = reviews.with_columns([
+                    pl.from_epoch(pl.col('timestamp'), time_unit='s').alias('date')
+                ])
+            else:
+                print("⚠️ No timestamp column found - skipping date conversion")
+                return
             
             # Extract date components
             reviews = reviews.with_columns([
@@ -97,11 +120,15 @@ class DemandService:
             )
             
             # Load metadata for product names
+            # Try both .jsonl and .json extensions
             meta_path = DATASET_PATH / "meta_Home_and_Kitchen.jsonl"
+            if not meta_path.exists():
+                meta_path = DATASET_PATH / "meta_Home_and_Kitchen.json"
             if meta_path.exists():
                 meta = pl.read_ndjson(meta_path, n_rows=50000)
                 for row in meta.iter_rows(named=True):
-                    asin = row.get('parent_asin')
+                    # Handle both 'parent_asin' and 'asin' column names
+                    asin = row.get('parent_asin') or row.get('asin')
                     if asin:
                         self.metadata[asin] = {
                             'title': row.get('title', asin),

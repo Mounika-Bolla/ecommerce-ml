@@ -266,10 +266,12 @@ export default function Recommendations() {
     loadStats()
   }, [])
 
-  // Load products when stats ready
+  // Load products when stats ready (or partial - models are loaded)
   useEffect(() => {
-    if (stats?.status === 'ready') {
+    if (stats && (stats.status === 'ready' || stats.status === 'partial')) {
       loadProducts()
+    } else if (stats && stats.status === 'not_loaded') {
+      setError('Recommendation models not loaded. Please check backend logs.')
     }
   }, [stats])
 

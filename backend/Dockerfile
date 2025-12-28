@@ -31,6 +31,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 ADD pyproject.toml README.md ./
 ADD app /app/app
 
+# Copy ML models and dataset (if they exist)
+# These are needed for the recommendation and demand forecasting services
+COPY ml/models /app/ml/models
+COPY ml/dataset /app/ml/dataset
+
 # Sync the project
 # Ref: https://docs.astral.sh/uv/guides/integration/docker/#intermediate-layers
 RUN --mount=type=cache,target=/root/.cache/uv \

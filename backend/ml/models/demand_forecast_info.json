@@ -7,10 +7,10 @@
     "rolling_mean_4",
     "rolling_std_4"
   ],
-  "demo_product": "B07D1C573W",
+  "demo_product": "B00004RFRV",
   "metrics": {
-    "MAE": 0.37138299813321785,
-    "RMSE": 0.6131471533305445
+    "MAE": 3.575495805247428,
+    "RMSE": 5.046542911120018
   },
   "assumption": "Review count used as proxy for demand",
   "limitations": [
