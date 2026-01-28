@@ -42,13 +42,13 @@ The images below show the frontend pages for recommendations and demand forecast
   ![Recommendations – selected product and recommended items](frontend/public/recommendation page.png)
 
 - frontend/public/assets/screenshots/demand-hero.png  
-  ![Demand analytics hero with summary cards](frontend/public//demand forecasting.png)
+  ![Demand analytics hero with summary cards](frontend/public/demand forecasting 1.png)
 
 - frontend/public/assets/screenshots/leaderboard.png  
-  ![Product leaderboard ranked by demand](frontend/public/dm2.png)
+  ![Product leaderboard ranked by demand](frontend/public/dm3.png)
 
 - frontend/public/assets/screenshots/deep-dive.png  
-  ![Product deep dive and weekly demand timeline](frontend/public/dm3.png)
+  ![Product deep dive and weekly demand timeline](frontend/public/dm2.png)
 
 ## Tech Stack
 
