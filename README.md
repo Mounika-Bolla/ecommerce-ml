@@ -39,10 +39,10 @@ This repository implements:
 The images below show the frontend pages for recommendations and demand forecasting. Place these files under `frontend/public/assets/screenshots/` or `frontend/src/assets/` and update paths in the repository as needed.
 
 - frontend/public/assets/screenshots/recommendations-1.png  
-  ![Recommendations – selected product and recommended items](frontend/public/recommendation page.png)
+  ![Recommendations – selected product and recommended items](frontend/public/recommendation.png)
 
 - frontend/public/assets/screenshots/demand-hero.png  
-  ![Demand analytics hero with summary cards](frontend/public/demand forecasting 1.png)
+  ![Demand analytics hero with summary cards](frontend/public/dm1.png)
 
 - frontend/public/assets/screenshots/leaderboard.png  
   ![Product leaderboard ranked by demand](frontend/public/dm3.png)
